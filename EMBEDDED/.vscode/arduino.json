@@ -1,0 +1,7 @@
+{
+    "sketch": "src/coolant_monitor/coolant_monitor.ino",
+    "board": "arduino:avr:leonardo",
+    "output": "output",
+    "port": "/dev/ttyACM0",
+    "programmer": "arduino:usbtinyisp"
+}

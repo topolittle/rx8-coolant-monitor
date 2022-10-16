@@ -1,0 +1,19 @@
+# gitignore for Altium
+
+History
+Project\ Logs
+Project\ Outputs
+Project Outputs for*
+
+*.PrjPCBStructure
+*.REP 
+*.TLT
+*.htm
+*.PcbDocPreview
+*.PrjPcbStructure
+*.SchDocPreview
+*.log
+*.Dat
+*.LOG
+*.$$$
+__Previews

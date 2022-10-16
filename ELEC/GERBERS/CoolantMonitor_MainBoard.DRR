@@ -1,0 +1,18 @@
+----------------------------------------------------------------------------------------------------------------------------------
+NCDrill File Report For: CoolantMonitor_MainBoard.PcbDoc   10/10/2022  7:15:13 PM
+----------------------------------------------------------------------------------------------------------------------------------
+
+Layer Pair : Top Layer to Bottom Layer
+ASCII RoundHoles File : CoolantMonitor_MainBoard.TXT
+
+Tool       Hole Size               Hole Tolerance               Hole Type       Hole Count   Plated         Tool Travel
+----------------------------------------------------------------------------------------------------------------------------------
+T1      32mil (0.813mm)                                           Round             95        PTH        26.98inch (685.42mm)
+T2      42mil (1.067mm)                                           Round             46        PTH        12.66inch (321.54mm)
+T3      62mil (1.575mm)                                           Round             4         PTH        1.63inch (41.28mm)
+T4      120mil (3.048mm)                                          Round             6         PTH        5.29inch (134.45mm)
+T5      170mil (4.305mm)                                          Round             4         PTH        11.98inch (304.25mm)
+----------------------------------------------------------------------------------------------------------------------------------
+Totals                                                                              155
+
+Total Processing Time (hh:mm:ss) : 00:00:00
