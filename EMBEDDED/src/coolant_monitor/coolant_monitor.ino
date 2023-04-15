@@ -247,6 +247,8 @@ int getSupplyVoltage(float &voltage)
 // Note: There a voltage divisor on the board that divide by roughfy 3.127
 // 10K and 4.7K = 14.7K / 4.7K = 3.127
 // So 1.7V input would read .543V and 16V would read 4.79V at the analog pin
+// Note: There is no needs to use high precision function here. A simple analog read
+// is good enaugh.
 bool isDayLight()
 {
     float v;
