@@ -254,16 +254,15 @@ bool isDayLight()
     return (v < 0.5) ? true : false;
 }
 
-// If daylight is true, set the display to is maximum. Dim the display otherwise
+// If daylight is true, set all display to their maximum luminosity, dim them otherwise
 void setDayLight(bool dayLight)
 {
     currentDaylight = dayLight;
-
-    selectDisplay(display_1);
-    display_1.dim(!dayLight);
-
-    selectDisplay(display_2);
-    display_2.dim(!dayLight);
+    for (size_t d = 0; d < display_count; d++)
+    {
+        selectDisplay(*displays[d]);
+        displays[d]->dim(!dayLight);
+    }
 }
 
 // Ensure the display intensity is set according to the current daylight status
