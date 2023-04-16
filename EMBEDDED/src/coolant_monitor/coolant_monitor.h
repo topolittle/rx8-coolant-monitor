@@ -4,10 +4,10 @@
  * BSD tree clause licence (SPDX: BSD-3-Clause)
 */
 
-// Display a warning sign when the coolant temperature is equal or exceed this temperature
+// The coolant temperature warning threshold, in Celsius
 #define COOLANT_TEMP_WARNING_CELSIUS 110
 
-// Display a warning sign when the coolant pressure equal or exceed this value
+// The coolant pressure warning threshold, in PSI
 #define COOLANT_PSI_WARNING 13
 
 // Display a warning sign when the battery voltage is below or above these values

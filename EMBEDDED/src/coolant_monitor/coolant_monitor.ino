@@ -1,6 +1,6 @@
 /* 
  * This is the main source code for the RX-8 coolant monitor project.
- * It targets an Arduino base Pro Micro.
+ * It targets an Arduino based Pro Micro.
  * Author: Stephane Gilbert
  * BSD tree clause licence (SPDX: BSD-3-Clause)
 */
@@ -17,10 +17,11 @@
 Adafruit_SSD1306 display_1(128, 32, &Wire, OLED_RESET);
 Adafruit_SSD1306 display_2(128, 32, &Wire, OLED_RESET);
 Adafruit_SSD1306 display_3(128, 32, &Wire, OLED_RESET);
+
 Adafruit_SSD1306* displays [] = { &display_1, &display_2, &display_3 };
 uint8_t display_count = sizeof(displays) / sizeof(Adafruit_SSD1306*);
 
-// Values to keep the current reading in memory
+// Values to cache the current reading in memory
 float current_coolant_temp;
 float current_coolant_psi;
 float current_supply_voltage;
@@ -56,19 +57,25 @@ void selectDisplay(Adafruit_SSD1306 &display)
 // Return: A float between 0 and 1023 representing the analog value on the specieid pin
 float readAnalogInputRaw(uint8_t pin)
 {
-    uint16_t val = 0;
+    uint16_t cumulative_value = 0;
+    int single_value;
+
+    // The first read is a dummy read only to warm up the ADC, so we Loop from zero to
+    // ANALOG_SAMPLES_COUNT inclusively, in fact ANALOG_SAMPLES_COUNT + 1 times.
     for (size_t i = 0; i <= ANALOG_SAMPLES_COUNT; i++)
     {
-        // The first read is a dummy read only to warm up the ADC
-        val += i > 0 ? analogRead(pin) : 0;
+        single_value = analogRead(pin);
+
+        // If it's the first read, force the value to zero, it it will not be taken into account
+        cumulative_value += i > 0 ? single_value : 0;
         delay(ANALOG_DELAY_BETWEEN_ACQUISITIONS);
     }
 
     // Return the arithmetic mean
-    return (float)val / (float)ANALOG_SAMPLES_COUNT;
+    return (float)cumulative_value / (float)ANALOG_SAMPLES_COUNT;
 }
 
-// Read the voltage at the specified pin
+// Returns the voltage on the specified pin using an external reference voltage for maximum accuracy
 // pin: The pin on which the analog read will occur
 // Return: A float representing the voltage read at the specified pin
 float readVoltage(uint8_t pin)
@@ -88,6 +95,8 @@ void forceDisplayRefresh(Adafruit_SSD1306 &display)
 
     if ((int)&display == (int)&display_2)
         current_coolant_psi = __FLT_MIN__;
+
+    if ((int)&display == (int)&display_3)
         current_supply_voltage = __FLT_MIN__;
 }
 
@@ -137,6 +146,8 @@ void setThermistorHighReference(const bool value)
 }
 
 // Convert the provided temperature from Celsius to Fahrenheit
+// temperature: The temperature to convert from Celsius
+// Return: A float representing the converted temperature, in Fahrenheit
 float convertToFahrenheit(float temperature)
 {
     return temperature * 9.0 / 5.0 + 32.0;
@@ -144,7 +155,9 @@ float convertToFahrenheit(float temperature)
 
 // Read the thermistor resistor value and convert it to temperature in Celsius
 // using the Steinhart-Hart equation.
-// Return: The temperature in celsius (float)
+// TC: The variable that will hold the returned temperature value
+// Return: ENOERR if the conversion succeeded and the value has been placed in the TC parameter, otherwise the error code
+// Note: The function also manage the pull-down resistor set related to the sensor
 int getCoolantTempCelsius(float &TC)
 {
     float tResValue;
@@ -161,7 +174,7 @@ int getCoolantTempCelsius(float &TC)
     float c2 = 2.302830665e-4;   // 50C, 3911 OHMs
     float c3 = 0.8052469400e-7;  // 150C, 189.3 OHMs
 
-    // Get the analog value on the input put 
+    // Get the analog value on the input pin
     analogValue = readAnalogInputRaw(COOLANT_ANALOG_INPUT_PIN);
 
     // Avoid dividing by zero
@@ -169,7 +182,7 @@ int getCoolantTempCelsius(float &TC)
         return EDIVZERO;
     }
 
-    // Discard value that doesn't make sense
+    // Discard any values that do not make sense
     if (analogValue < 0) {
         return ERANGE;
     }
@@ -177,8 +190,7 @@ int getCoolantTempCelsius(float &TC)
     // Use the correct pull down resistor reference value according to the actual configured value
     float t_res_ref = thermistor_reference_mode_high ? THERMISTOR_RESISTOR_REFERENCE_HIGH : THERMISTOR_RESISTOR_REFERENCE_LOW;
 
-    // Compute the thermistor resistor value, using the equation R2 = R1 X (Vin / Vout -1)
-    // R1 is the know resistor, R2 is the thermistor value, Vin and Vout are voltage, but we use analog max value and analog read raw value instead.
+    // Compute the thermistor resistor value, using the equation R2 = R1 * (Vin / Vout - 1)
     tResValue = t_res_ref * (1023.0 / ((float)analogValue) - 1.0);
 
     // Convert the thermistor resistor value to temperature in Kelvin using the Steinhart-Hart equation
@@ -196,6 +208,7 @@ int getCoolantTempCelsius(float &TC)
     // Manage the pull-down resistor reference for the next run
     if (thermistor_reference_mode_high && TC > THERMISTOR_RESISTOR_REFERENCE_LOW_TRESHOLD)
         setThermistorHighReference(false);
+
     if (! thermistor_reference_mode_high && TC < THERMISTOR_RESISTOR_REFERENCE_HIGH_TRESHOLD)
         setThermistorHighReference(true);
 
@@ -203,7 +216,9 @@ int getCoolantTempCelsius(float &TC)
 }
 
 // Get the Coolant pressure in PSI.
-// The AEM 30-2131-15G is a linear sensor.
+// psi: The variable that will hold the returned PSI value
+// Return: ENOERR if the conversion succeeded and the value has been placed in the psi
+//         parameter, otherwise the error code
 int getCoolantPsi(float &psi)
 {
     float volts;
@@ -226,12 +241,15 @@ int getCoolantPsi(float &psi)
 
 // Read the supply voltage before the DC-DC converter
 // It should be between 11.5 and 14.5
+// voltage: The variable that will hold the returned voltage value
+// Return: ENOERR if the conversion succeeded and the value has been placed in the voltage
+//         parameter, otherwise the error code
 int getSupplyVoltage(float &voltage)
 {
     float volts, supply_voltage;
     volts = readVoltage(VOLTAGE_ANALOG_INPUT_PIN);
 
-    // Convert pin voltage to actual voltage base on the onboard tension divider
+    // Convert pin voltage to actual voltage based on the onboard tension divider
     supply_voltage = volts / (VOLTAGE_DIVIDER_R2 / (VOLTAGE_DIVIDER_R1 + VOLTAGE_DIVIDER_R2));
 
     // We can't be alive and have a supply voltage below 7V at the same time
@@ -242,9 +260,9 @@ int getSupplyVoltage(float &voltage)
     return ENOERR;
 }
 
-// Return true if the illumination is not active, return false if the night lights is active
+// Return true if the illumination (pakring lights) are turned off, otherwise false
 // Valid voltage are between 0V and 15V. Anything below 1.7v is considered day lignt
-// Note: There a voltage divisor on the board that divide by roughfy 3.127
+// Note: There a voltage divisor on the board that divide by roughly 3.127
 // 10K and 4.7K = 14.7K / 4.7K = 3.127
 // So 1.7V input would read .543V and 16V would read 4.79V at the analog pin
 // Note: There is no needs to use high precision function here. A simple analog read
@@ -277,10 +295,11 @@ void processDayLight()
 }
 
 // Update the temperature on the specified display with the specified temperature.
-// If the Fahrenheit selector jumper was present during boot time, display the
+// If the Fahrenheit selector jumper has been present during boot time, display the
 // temperature in Fahrenheit, display in Celsius otherwise.
-// display: The display on wich the value will be displayed
-// temperature: The remperature do display, in Celsius
+// display: An instance of the Adafruit_SSD1306 class representing the display
+//          on wich the value will be displayed
+// temperature: The temperature to display, in Celsius
 void updateCoolant(Adafruit_SSD1306 &display, float temperature)
 {
     current_coolant_temp = temperature;
@@ -310,8 +329,9 @@ void updateCoolant(Adafruit_SSD1306 &display, float temperature)
 }
 
 // Update the PSI on the specified display with the provided value
-// display: The display on wich the value will be displayed
-// psi: The pressure in psi
+// display: An instance of the Adafruit_SSD1306 class representing the display
+//          on wich the value will be displayed
+// psi: The pressure in PSI
 void updatePsi(Adafruit_SSD1306 &display, float psi)
 {
     current_coolant_psi = psi;
@@ -320,12 +340,12 @@ void updatePsi(Adafruit_SSD1306 &display, float psi)
     display.clearDisplay();
     drawIcon(display, Icon::radiator_pressure_icon, 0, 3);
 
-    // Print the psi value
+    // Print the PSI value
     // Move slightly the displayed value to the left if we are in warning state to give room for the warning sign
     display.setCursor(TEXT_POS_X - (psi < COOLANT_PSI_WARNING ? 0 : 10), TEXT_POS_Y + 24);
     display.print(psi, 1);
 
-    // Print the psi sign
+    // Print the PSI sign
     drawIcon(display, Icon::psi_sign, display.getCursorX() + 1, TEXT_POS_Y);
     
     if (psi >= COOLANT_PSI_WARNING)
@@ -335,7 +355,8 @@ void updatePsi(Adafruit_SSD1306 &display, float psi)
 }
 
 // Update the supply voltage on the specified display with the provided value
-// display: The display on wich the value will be displayed
+// display: An instance of the Adafruit_SSD1306 class representing the display
+//          on wich the value will be displayed
 // voltage: The voltage value to display
 void updateSupplyVoltage(Adafruit_SSD1306 &display, float voltage)
 {
@@ -358,7 +379,7 @@ void updateSupplyVoltage(Adafruit_SSD1306 &display, float voltage)
 }
 
 // Display a small animation
-// The logo width must be a multiple 8. Typically, 8 bits in an unsigned char.
+// The logo width must be a multiple of 8. Typically, 8 bits in an unsigned char
 void displayIntro()
 {
     // The icon to use for the animation
@@ -404,9 +425,9 @@ void displayIntro()
     delay(3000);
 }
 
-// Configures the IO pins.
-// All unused pins are puts in three state with pull-ups.
-void configureIO()
+// Configures the Arduino IO pins
+// All unused pins are put in three state with pull-ups
+void configureIOs()
 {
     // Set VCC as analog reference
     analogReference(DEFAULT);
@@ -436,6 +457,9 @@ void configureIO()
     pinMode(VOLTAGE_ANALOG_INPUT_PIN, INPUT);
 }
 
+// Initialize the specified display, set font, size and color
+// display: An instance of the Adafruit_SSD1306 class representing the display
+//          to be initialized
 void initDisplay(Adafruit_SSD1306 &display)
 {
     selectDisplay(display);
@@ -450,7 +474,7 @@ void initDisplay(Adafruit_SSD1306 &display)
 
 void setup()
 {
-    configureIO();
+    configureIOs();
     for (size_t d = 0; d < display_count ; d++)
     {
         initDisplay(*displays[d]);
@@ -474,11 +498,15 @@ void loop()
     float supply_voltage;
     bool dayLight;
     int err;
+
+    // The following value are used to compute and enforce the refresh rate
     uint64_t startMs;
     int32_t elapsedMs;
     int32_t waitMs;
 
+    // Sample the current timer counter
     startMs = millis();
+
     err = getCoolantTempCelsius(coolant_temp);
     if (err == ENOERR) {
         if (coolant_temp != current_coolant_temp)
@@ -506,6 +534,8 @@ void loop()
     processDayLight();
 
     // Wait the correct amount of time to respect the desired refresh rate
+    // Note: There is no needs to take the timer overflow into account here. The timer overflows every
+    //       50 days, which is much longer than a car would runs continuously
     elapsedMs = (int32_t)(millis() - startMs);
     waitMs = int32_t((int32_t)((1.0 / (float)DISPLAY_REFRESH_RATE_HZ) * 1000.0) - (int32_t)elapsedMs);
     if (waitMs > 0)
