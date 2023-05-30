@@ -225,7 +225,7 @@ int getCoolantPsi(float &psi)
     volts = readVoltage(PSI_ANALOG_INPUT_PIN);
 
     // Ensure the voltage is between the sensor range, otherwise return an error
-    if (volts < 0.3 || volts > 4.8) {
+    if (volts < 0.2 || volts > 4.8) {
         return ERANGE;
     }
 
