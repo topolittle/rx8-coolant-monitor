@@ -8,7 +8,7 @@
 #define COOLANT_TEMP_WARNING_CELSIUS 110
 
 // The coolant pressure warning threshold, in PSI
-#define COOLANT_PSI_WARNING 13
+#define COOLANT_PSI_WARNING 15
 
 // Display a warning sign when the battery voltage is below or above these values
 #define BATTERY_VOLTAGE_LOW_WARNING 11.6
