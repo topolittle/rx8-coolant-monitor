@@ -60,7 +60,7 @@ You can use the Arduino IDE or you can use the provided devcontainer for VSCode.
 1. Open the folder `EMBEDDED` with VSCode
 2. View -> Command Palette
 3. Type `Dev Containers: Reopen in Container`
-4. Inside the container, use `shift+ctrl+R` to compile and `shift+ctrl+U` to upload  
+4. Inside the container, use `ctrl_alt+R` to compile and `ctrl+alt+U` to upload  
  
 Note: The devcontainer has been tested on Linux Fedora 35/36 and Oracle Linux 8.6. It might work with Windows 10+ under WSL2 but it's not tested.
 
